@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="es-CO">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -141,8 +141,8 @@
     <section class="card">
       <form id="loan-form" novalidate>
         <div>
-          <label for="amount">Monto del préstamo</label>
-          <input id="amount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Ej. 10000" required>
+          <label for="amount">Monto del préstamo (COP)</label>
+          <input id="amount" type="number" inputmode="numeric" min="1" step="1" placeholder="Ej. 10000000" required>
         </div>
         <div>
           <label for="rate">Tasa de interés anual (%)</label>
@@ -172,7 +172,7 @@
         <div class="stat"><span>Total a pagar</span><strong id="out-total">—</strong></div>
         <div class="stat"><span>Número de pagos</span><strong id="out-count">—</strong></div>
       </div>
-      <p class="note">Cálculo con cuota fija (sistema francés). La tasa anual se divide entre 12 para obtener la tasa mensual.</p>
+      <p class="note">Cálculo con cuota fija (sistema francés). La tasa anual se divide entre 12 para obtener la tasa mensual. Valores en pesos colombianos, redondeados al peso.</p>
     </section>
 
     <section class="card hidden" id="schedule">
@@ -207,12 +207,9 @@
   </main>
 
   <script>
-    const money = new Intl.NumberFormat("es-MX", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-    const fmt = (n) => "$" + money.format(n);
-    const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+    // Pesos colombianos: punto como separador de miles y sin decimales (ej. $1.250.000).
+    const fmt = (n) => "$" + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    const roundPesos = (n) => Math.round(n);
 
     const $ = (id) => document.getElementById(id);
     const form = $("loan-form");
@@ -226,20 +223,20 @@
 
     function buildSchedule(principal, annualRate, n) {
       const r = annualRate / 100 / 12;
-      const payment = round2(monthlyPayment(principal, r, n));
+      const payment = roundPesos(monthlyPayment(principal, r, n));
       const rows = [];
       let balance = principal;
 
       for (let i = 1; i <= n; i++) {
-        const interest = round2(balance * r);
-        let capital = round2(payment - interest);
+        const interest = roundPesos(balance * r);
+        let capital = roundPesos(payment - interest);
         let pay = payment;
         // La última cuota ajusta los centavos de redondeo para dejar el saldo en 0.
         if (i === n || capital > balance) {
-          capital = round2(balance);
-          pay = round2(capital + interest);
+          capital = roundPesos(balance);
+          pay = roundPesos(capital + interest);
         }
-        balance = round2(balance - capital);
+        balance = roundPesos(balance - capital);
         rows.push({ n: i, payment: pay, capital, interest, balance });
         if (balance <= 0) break;
       }
@@ -256,12 +253,12 @@
 
     function render(event) {
       if (event) event.preventDefault();
-      const amount = readInput("amount", { min: 0.01 });
+      const amount = readInput("amount", { min: 1 });
       const rate = readInput("rate", { min: 0 });
       const term = readInput("term", { min: 1, integer: true });
 
       const errors = [];
-      if (amount === null) errors.push("el monto debe ser mayor que 0");
+      if (amount === null) errors.push("el monto debe ser un valor mayor que 0");
       if (rate === null) errors.push("la tasa debe ser 0 o mayor");
       if (term === null) errors.push("el plazo debe ser un número entero mayor que 0");
       if (rate !== null && rate > 1000) errors.push("la tasa parece demasiado alta");
@@ -317,7 +314,7 @@
     function exportCsv() {
       const lines = ["Numero,Cuota,Capital,Interes,Saldo"].concat(
         lastSchedule.map((r) =>
-          [r.n, ...[r.payment, r.capital, r.interest, r.balance].map((v) => v.toFixed(2))].join(",")
+          [r.n, ...[r.payment, r.capital, r.interest, r.balance].map((v) => Math.round(v))].join(",")
         )
       );
       const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
