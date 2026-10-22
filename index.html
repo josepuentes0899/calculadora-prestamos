@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="es-CO">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Calculadora de Préstamos</title>
+  <meta name="description" content="Calcula la cuota mensual de tu préstamo y consulta la tabla de pagos completa.">
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --surface: #ffffff;
+      --text: #1d2330;
+      --muted: #5d6677;
+      --border: #dde1e8;
+      --accent: #1f6feb;
+      --accent-text: #ffffff;
+      --accent-soft: #e8f0fe;
+      --error: #c62828;
+      --row-alt: #f9fafb;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #12151b;
+        --surface: #1b2029;
+        --text: #e6e9ef;
+        --muted: #9aa3b2;
+        --border: #2d3442;
+        --accent: #4c8dff;
+        --accent-text: #0b1220;
+        --accent-soft: #1d2a42;
+        --error: #ff6b6b;
+        --row-alt: #1f2530;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.5;
+    }
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 16px 48px;
+    }
+    h1 { font-size: 1.75rem; margin: 0 0 4px; }
+    .subtitle { color: var(--muted); margin: 0 0 24px; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    form {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      align-items: end;
+    }
+    label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 6px; }
+    .field-row { display: flex; gap: 8px; }
+    input, select {
+      width: 100%;
+      font: inherit;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    select { width: auto; }
+    input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+    input[aria-invalid="true"] { border-color: var(--error); }
+    button {
+      font: inherit;
+      font-weight: 600;
+      background: var(--accent);
+      color: var(--accent-text);
+      border: none;
+      border-radius: 8px;
+      padding: 11px 16px;
+      cursor: pointer;
+    }
+    button.secondary {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 7px 12px;
+      font-size: 0.9rem;
+    }
+    .error { color: var(--error); font-size: 0.9rem; margin: 12px 0 0; min-height: 1.2em; }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .stat { padding: 14px 16px; border-radius: 10px; background: var(--row-alt); }
+    .stat.main { background: var(--accent-soft); }
+    .stat span { display: block; color: var(--muted); font-size: 0.85rem; }
+    .stat strong { font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+    .stat.main strong { font-size: 1.7rem; color: var(--accent); }
+
+    .table-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .table-head h2 { font-size: 1.15rem; margin: 0; }
+    .table-wrap { overflow-x: auto; max-height: 520px; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    th, td { padding: 8px 12px; text-align: right; white-space: nowrap; }
+    th:first-child, td:first-child { text-align: center; }
+    thead th {
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      border-bottom: 2px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    tbody tr:nth-child(even) { background: var(--row-alt); }
+    tfoot td { font-weight: 700; border-top: 2px solid var(--border); }
+    .hidden { display: none; }
+    .note { color: var(--muted); font-size: 0.85rem; margin: 12px 0 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Calculadora de Préstamos</h1>
+    <p class="subtitle">Ingresa los datos de tu préstamo para ver la cuota mensual y la tabla de pagos.</p>
+
+    <section class="card">
+      <form id="loan-form" novalidate>
+        <div>
+          <label for="amount">Monto del préstamo (COP)</label>
+          <input id="amount" type="number" inputmode="numeric" min="1" step="1" placeholder="Ej. 10000000" required>
+        </div>
+        <div>
+          <label for="rate">Tasa de interés anual (%)</label>
+          <input id="rate" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Ej. 12" required>
+        </div>
+        <div>
+          <label for="term">Plazo</label>
+          <div class="field-row">
+            <input id="term" type="number" inputmode="numeric" min="1" step="1" placeholder="Ej. 24" required>
+            <select id="term-unit" aria-label="Unidad del plazo">
+              <option value="months">meses</option>
+              <option value="years">años</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <button type="submit">Calcular</button>
+        </div>
+      </form>
+      <p class="error" id="error" role="alert"></p>
+    </section>
+
+    <section class="card hidden" id="results" aria-live="polite">
+      <div class="summary">
+        <div class="stat main"><span>Cuota mensual</span><strong id="out-payment">—</strong></div>
+        <div class="stat"><span>Total de intereses</span><strong id="out-interest">—</strong></div>
+        <div class="stat"><span>Total a pagar</span><strong id="out-total">—</strong></div>
+        <div class="stat"><span>Número de pagos</span><strong id="out-count">—</strong></div>
+      </div>
+      <p class="note">Cálculo con cuota fija (sistema francés). La tasa anual se divide entre 12 para obtener la tasa mensual. Valores en pesos colombianos, redondeados al peso.</p>
+    </section>
+
+    <section class="card hidden" id="schedule">
+      <div class="table-head">
+        <h2>Tabla de pagos</h2>
+        <button type="button" class="secondary" id="export">Descargar CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>N.º</th>
+              <th>Cuota</th>
+              <th>Capital</th>
+              <th>Interés</th>
+              <th>Saldo</th>
+            </tr>
+          </thead>
+          <tbody id="schedule-body"></tbody>
+          <tfoot>
+            <tr>
+              <td>Total</td>
+              <td id="sum-payment"></td>
+              <td id="sum-principal"></td>
+              <td id="sum-interest"></td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // Pesos colombianos: punto como separador de miles y sin decimales (ej. $1.250.000).
+    const fmt = (n) => "$" + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    const roundPesos = (n) => Math.round(n);
+
+    const $ = (id) => document.getElementById(id);
+    const form = $("loan-form");
+    let lastSchedule = [];
+
+    // Cuota fija: P * r / (1 - (1 + r)^-n). Con tasa 0 es simplemente P / n.
+    function monthlyPayment(principal, monthlyRate, n) {
+      if (monthlyRate === 0) return principal / n;
+      return (principal * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -n));
+    }
+
+    function buildSchedule(principal, annualRate, n) {
+      const r = annualRate / 100 / 12;
+      const payment = roundPesos(monthlyPayment(principal, r, n));
+      const rows = [];
+      let balance = principal;
+
+      for (let i = 1; i <= n; i++) {
+        const interest = roundPesos(balance * r);
+        let capital = roundPesos(payment - interest);
+        let pay = payment;
+        // La última cuota ajusta los centavos de redondeo para dejar el saldo en 0.
+        if (i === n || capital > balance) {
+          capital = roundPesos(balance);
+          pay = roundPesos(capital + interest);
+        }
+        balance = roundPesos(balance - capital);
+        rows.push({ n: i, payment: pay, capital, interest, balance });
+        if (balance <= 0) break;
+      }
+      return { payment, rows };
+    }
+
+    function readInput(id, { min, integer }) {
+      const el = $(id);
+      const value = Number(el.value);
+      const ok = el.value.trim() !== "" && Number.isFinite(value) && value >= min && (!integer || Number.isInteger(value));
+      el.setAttribute("aria-invalid", ok ? "false" : "true");
+      return ok ? value : null;
+    }
+
+    function render(event) {
+      if (event) event.preventDefault();
+      const amount = readInput("amount", { min: 1 });
+      const rate = readInput("rate", { min: 0 });
+      const term = readInput("term", { min: 1, integer: true });
+
+      const errors = [];
+      if (amount === null) errors.push("el monto debe ser un valor mayor que 0");
+      if (rate === null) errors.push("la tasa debe ser 0 o mayor");
+      if (term === null) errors.push("el plazo debe ser un número entero mayor que 0");
+      if (rate !== null && rate > 1000) errors.push("la tasa parece demasiado alta");
+
+      const months = term === null ? null : ($("term-unit").value === "years" ? term * 12 : term);
+      if (months !== null && months > 1200) errors.push("el plazo máximo es 1200 meses (100 años)");
+
+      if (errors.length) {
+        $("error").textContent = "Revisa los datos: " + errors.join("; ") + ".";
+        $("results").classList.add("hidden");
+        $("schedule").classList.add("hidden");
+        return;
+      }
+      $("error").textContent = "";
+
+      const { payment, rows } = buildSchedule(amount, rate, months);
+      lastSchedule = rows;
+
+      const totals = rows.reduce(
+        (acc, r) => ({
+          payment: acc.payment + r.payment,
+          capital: acc.capital + r.capital,
+          interest: acc.interest + r.interest,
+        }),
+        { payment: 0, capital: 0, interest: 0 }
+      );
+
+      $("out-payment").textContent = fmt(payment);
+      $("out-interest").textContent = fmt(totals.interest);
+      $("out-total").textContent = fmt(totals.payment);
+      $("out-count").textContent = rows.length;
+
+      const body = $("schedule-body");
+      body.replaceChildren(
+        ...rows.map((r) => {
+          const tr = document.createElement("tr");
+          [r.n, fmt(r.payment), fmt(r.capital), fmt(r.interest), fmt(r.balance)].forEach((v) => {
+            const td = document.createElement("td");
+            td.textContent = v;
+            tr.appendChild(td);
+          });
+          return tr;
+        })
+      );
+      $("sum-payment").textContent = fmt(totals.payment);
+      $("sum-principal").textContent = fmt(totals.capital);
+      $("sum-interest").textContent = fmt(totals.interest);
+
+      $("results").classList.remove("hidden");
+      $("schedule").classList.remove("hidden");
+    }
+
+    function exportCsv() {
+      const lines = ["Numero,Cuota,Capital,Interes,Saldo"].concat(
+        lastSchedule.map((r) =>
+          [r.n, ...[r.payment, r.capital, r.interest, r.balance].map((v) => Math.round(v))].join(",")
+        )
+      );
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "tabla-de-pagos.csv";
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+
+    form.addEventListener("submit", render);
+    $("export").addEventListener("click", exportCsv);
+  </script>
+</body>
+</html>
